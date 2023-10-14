@@ -1,6 +1,9 @@
+import shutil
+import tempfile
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from hdfs import InsecureClient
 import os
+import io
 import zipfile
 
 app = Flask(__name__)
@@ -87,6 +90,39 @@ def list_folder_contents():
         return jsonify({'contents': files})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+
+
+@app.route('/upload_apache', methods=['POST'])
+def upload_apacheS():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file:
+        # Read the contents of the file
+        file_content = file.read()
+
+        # Extract the uploaded zip file to a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            # Move the extracted directory to the target location
+            parent_dir = os.path.join("/var/www/html/myfiles", os.path.splitext(file.filename)[0])
+            shutil.move(temp_dir, parent_dir)
+
+            # Move the extracted folder to HDFS using the hdfs library
+            move_to_hdfs(parent_dir, os.path.splitext(file.filename)[0])
+
+        return jsonify({'message': f'File successfully uploaded, extracted, and moved to HDFS'}), 200
+
+       
 
 
 @app.route('/')
