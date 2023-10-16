@@ -1,4 +1,5 @@
 import shutil
+import stat
 import tempfile
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from hdfs import InsecureClient
@@ -117,11 +118,19 @@ def upload_apacheS():
             parent_dir = os.path.join("/var/www/html/myfiles", os.path.splitext(file.filename)[0])
             shutil.move(temp_dir, parent_dir)
 
+            # Set permissions for the directory and files
+            os.chmod(parent_dir, stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+
+            for root, dirs, files in os.walk(parent_dir):
+                for d in dirs:
+                    os.chmod(os.path.join(root, d), stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+                for f in files:
+                    os.chmod(os.path.join(root, f), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
             # Move the extracted folder to HDFS using the hdfs library
             move_to_hdfs(parent_dir, os.path.splitext(file.filename)[0])
 
         return jsonify({'message': f'File successfully uploaded, extracted, and moved to HDFS'}), 200
-
        
 
 
